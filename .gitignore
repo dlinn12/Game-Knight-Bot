@@ -1,0 +1,23 @@
+# DLL
+__pycache__/
+*.py[cod]
+
+# Distribution / Packaging
+assets/
+
+# log files
+*.log
+
+# enviroment
+.env
+
+# sublime text
+*.sublime-project
+*.sublime-workspace
+
+# Specific data files
+comebacks.txt
+*.sql
+*.db
+db_startup_script.py
+startup_db.py
