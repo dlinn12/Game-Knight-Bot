@@ -7,6 +7,19 @@ from sqlite3 import Error
 from comeback import get_comeback
 from dotenv import load_dotenv
 from difflib import SequenceMatcher
+from dates import get_next_saturdays
+from GameNight import GameNight
+# from discord.ext import commands
+
+"""
+Stores active vote hash
+"""
+ACTIVE_VOTES = []
+
+intents = dc.Intents.default()
+intents.members = True
+
+# bot = commands.Bot(command_prefix='!', intents=intents)
 
 
 def create_connection(path):
@@ -42,6 +55,10 @@ def execute_read_query(connection, query):
 
 
 def guess_game_name(input_name, split):
+    """
+    @input_name: The original message content
+    @split: number of words from command to ommit
+    """
     game_name_list = input_name.lower().split()[split:]
     game_name_string = ''.join([str(word) for word in game_name_list])
     games_names = get_game_names(conn)
@@ -71,11 +88,33 @@ def get_game_names(connection):
     query = "SELECT Name from Games"
     result = execute_read_query(connection, query)
 
-    names = []
     if result is not None:
+        names = []
         for name in result:
             names.append(name[0])
         return names
+
+
+def get_game_titles(connection):
+    query = "SELECT Title FROM Games"
+    result = execute_read_query(connection, query)
+
+    if result is not None:
+        titles = []
+        for title in result:
+            titles.append(title[0])
+        return titles
+
+
+def get_game_title_emojis(connection):
+    query = "SELECT Title, Emoji FROM Games"
+    result = execute_read_query(connection, query)
+
+    if result is not None:
+        title_emojis = []
+        for value in result:
+            title_emojis.append(value[0] + value[1])
+        return title_emojis
 
 
 logger = logging.getLogger('discord')
@@ -89,7 +128,7 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 DB_NAME = os.getenv('DB_NAME')
 
 conn = create_connection(DB_NAME)
-client = dc.Client()
+client = dc.Client(intents=intents)
 
 
 @client.event
@@ -100,9 +139,6 @@ async def on_message(message):
     if message.content.startswith("insult"):
         msg = get_comeback()
         await message.channel.send(msg)
-
-    if message.content.startswith("!"):
-        msg = message.content.split()
 
     if message.content.lower().startswith("who owns"):
         name = guess_game_name(message.content, 2)
@@ -148,19 +184,60 @@ async def on_message(message):
 
         result = execute_read_query(conn, query)
         if result is not None:
-            msg = '{0} typically lasts {1} minutes'.format(name, result[0][0])
+            msg = '{0} typically lasts {1} minutes :clock1:'.format(name, result[0][0])
             await message.channel.send(msg)
 
+    if message.content.lower().startswith('!vote '):
+        ballot_list = message.content.lower().split()[1:]
+        ballot_string = ''.join([str(word) for word in ballot_list])
+
+        if ballot_string == 'gamenight':
+            if len(ACTIVE_VOTES) == 0:
+                s1, s2, s3, s4 = get_next_saturdays()  # get 4 next saturdays
+                msg = 'New Game Night Vote!\nReact with the appropriate emoji to cast your vote.'
+                msg += '\n\nDate Selection:\n\t:mouse: {0}\n\t:fox:'.format(s1)
+                msg += '{0}\n\t:rabbit: {1}\n\t:bird: {2}'.format(s2, s3, s4)
+                msg += '\n\nOnce all users have voted reply !vote game phase'
+
+                mess = await message.channel.send(msg)
+                new_game__night = GameNight(mess.id)
+                new_game__night.set_dates(s1, s2, s3, s4)
+                ACTIVE_VOTES.append(new_game__night)
+            else:
+                await message.channel.send('There\'s another vote in progress, pal')
+
+        if ballot_string == 'gamephase':
+            if len(ACTIVE_VOTES) > 0:
+                ACTIVE_VOTES[0].set_phase(1)
+                games = get_game_title_emojis(conn)
+                string_of_games = '\n'.join(games)
+                msg = 'Vote for your top three games!\nReact with the appropriate emoji to cast your vote.\n\n'
+                msg += string_of_games
+                msg += '\n\nOnce users have voted reply !vote host phase'
+
+                mess = await message.channel.send(msg)
+                ACTIVE_VOTES[0].set_id(mess.id)
+
     if message.content == "!allgames":
-        query = "SELECT Title from Games"
-        result = execute_read_query(conn, query)
-        if result is not None:
-            msg = ''
-            for s in result:
-                msg = msg + s[0] + '\n'
-            await message.channel.send(msg)
-        else:
-            print('The query:' + query + ' has failed.')
+        games = get_game_titles(conn)
+        msg = '\n'.join(games)
+        await message.channel.send(msg)
+
+
+@client.event
+async def on_reaction_add(reaction, user):
+    for gamenight in ACTIVE_VOTES:
+        if reaction.message.id == gamenight.get_id():
+            if gamenight.get_phase() != 2:
+                gamenight.tally_vote(reaction)
+
+
+@client.event
+async def on_reaction_remove(reaction, user):
+    for gamenight in ACTIVE_VOTES:
+        if reaction.message.id == gamenight.get_id():
+            if gamenight.get_phase() != 2:
+                gamenight.untally_vote(reaction)
 
 
 @client.event
