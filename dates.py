@@ -1,8 +1,18 @@
 from datetime import datetime, timedelta
 
 
+class Saturday():
+    """Wrapped DateTime obj with formatted tostring of month and day"""
+
+    def __init__(self, dt):
+        self.dt = dt
+
+    def __str__(self):
+        format_str = '%B %d'
+        return self.dt.strftime(format_str)
+
+
 def get_next_saturdays():
-    format_str = '%B %d'
     d = datetime.today()
     wd = d.weekday()
 
@@ -11,9 +21,9 @@ def get_next_saturdays():
     s3 = timedelta((19 - wd) % 21)
     s4 = timedelta((26 - wd) % 28)
 
-    s1 = (d + s1).strftime(format_str)
-    s2 = (d + s2).strftime(format_str)
-    s3 = (d + s3).strftime(format_str)
-    s4 = (d + s4).strftime(format_str)
+    s1 = Saturday(d + s1)
+    s2 = Saturday(d + s2)
+    s3 = Saturday(d + s3)
+    s4 = Saturday(d + s4)
 
     return s1, s2, s3, s4

@@ -6,8 +6,10 @@ class GameNight():
         self.games = []
         self.dates_votes = [0, 0, 0, 0]
         self.games_votes = [0 for x in range(17)]
-        self.winning_date = ''
+        self.winning_date = None
         self.winning_games = []
+        self.user_votes = {}  # (user_id, votes)
+        self.host = None
 
     def set_dates(self, d1, d2, d3, d4):
         self.dates.append(d1)
@@ -20,6 +22,9 @@ class GameNight():
 
     def set_id(self, id):
         self.id = id
+
+    def set_host(self, host):
+        self.host = host
 
     def get_id(self):
         return self.id
@@ -40,17 +45,33 @@ class GameNight():
         return self.winning_date
 
     def get_games(self):
-        vote = 0
-        index = 0
-        for i, v in enumerate(self.games_votes):
-            if v > vote:
-                vote = v
-                index = i
+        copy_game_votes = self.games_votes.copy()
 
-        self.winning_games.append(self.games_votes[index])
-        return self.winning_games # fix me; I use index in game votes but that is not neccessarily the order db spits out games in
+        gold_index = copy_game_votes.index(max(copy_game_votes))
+        gold = self.games[gold_index]
+        self.winning_games.append(gold)
+        copy_game_votes.pop(gold_index)
+        self.games.pop(gold_index)
 
-    def tally_vote(self, vote):
+        silver_index = copy_game_votes.index(max(copy_game_votes))
+        silver = self.games[silver_index]
+        self.winning_games.append(silver)
+        copy_game_votes.pop(silver_index)
+        self.games.pop(silver_index)
+
+        bronze_index = copy_game_votes.index(max(copy_game_votes))
+        bronze = self.games[bronze_index]
+        self.winning_games.append(bronze)
+        copy_game_votes.pop(bronze_index)
+        self.games.pop(bronze_index)
+
+        return self.winning_games
+
+    def add_game(self, game):
+        self.games.append(game)
+
+    def tally_vote(self, vote, user):
+        answer = True
         if self.phase == 0:
             if vote.emoji == '🐭':
                 self.dates_votes[0] += 1
@@ -63,6 +84,7 @@ class GameNight():
             else:
                 pass
         elif self.phase == 1:
+            game_vote = True
             if vote.emoji == '🏠':
                 self.games_votes[0] += 1
             elif vote.emoji == '❄':
@@ -98,10 +120,16 @@ class GameNight():
             elif vote.emoji == '🍻':
                 self.games_votes[16] += 1
             else:
-                pass
-            # print(self.games_votes)
+                game_vote = False
 
-    def untally_vote(self, vote):
+            if game_vote:
+                if not self.vote_added(user):
+                    answer = False
+        else:
+            answer = False
+        return answer
+
+    def untally_vote(self, vote, user):
         if self.phase == 0:
             if vote.emoji == '🐭':
                 self.dates_votes[0] -= 1
@@ -114,6 +142,7 @@ class GameNight():
             else:
                 pass
         elif self.phase == 1:
+            game_vote = True
             if vote.emoji == '🏠':
                 self.games_votes[0] -= 1
             elif vote.emoji == '❄':
@@ -149,5 +178,29 @@ class GameNight():
             elif vote.emoji == '🍻':
                 self.games_votes[16] -= 1
             else:
-                pass
-            # print(self.games_votes)
+                game_vote = False
+
+            if game_vote:
+                self.vote_removed(user)
+
+    def vote_added(self, user):
+        if user.id not in self.user_votes:
+            self.user_votes[user.id] = 1
+            return True
+        else:
+            current_votes = self.user_votes[user.id]
+
+            if current_votes >= 3:
+                self.user_votes[user.id] = current_votes + 1
+                return False
+            else:
+                self.user_votes[user.id] = current_votes + 1
+                return True
+
+    def vote_removed(self, user):
+        current_votes = self.user_votes[user.id]
+        self.user_votes[user.id] = current_votes - 1
+
+    def finalize_gamenight(self):
+        self.winning_date = self.get_date()
+        self.get_games()

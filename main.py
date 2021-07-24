@@ -9,12 +9,17 @@ from dotenv import load_dotenv
 from difflib import SequenceMatcher
 from dates import get_next_saturdays
 from GameNight import GameNight
-# from discord.ext import commands
 
 """
-Stores active vote hash
+Stores active vote id
 """
 ACTIVE_VOTES = []
+EMOJIS_DICTIONARY = {
+    ':house:': '🏠', ':snowflake:': '❄', ':snowman:': '⛄', ':snowman2:': '☃', ':cat:': '🐱',
+                    ':farmer:': '👨‍🌾', ':map:': '🗺', ':ring:': '💍', ':syringe:': '💉', ':clock1:': '🕐',
+                    ':classical_building:': '🏛', ':bird:': '🐦', ':imp:': '👿', ':dagger:': '🗡', ':dragon:': '🐲',
+                    ':beer:': '🍺', ':beers:': '🍻'
+}
 
 intents = dc.Intents.default()
 intents.members = True
@@ -113,8 +118,45 @@ def get_game_title_emojis(connection):
     if result is not None:
         title_emojis = []
         for value in result:
-            title_emojis.append(value[0] + value[1])
+            title_emojis.append(value[0] + '-' + value[1])
         return title_emojis
+
+
+def get_emojis(connection):
+    query = "SELECT Emoji FROM Games"
+    result = execute_read_query(connection, query)
+
+    if result is not None:
+        emojis = []
+        for item in result:
+            emojis.append(EMOJIS_DICTIONARY[item[0]])
+        return emojis
+
+
+def get_valid_hosts(connection):
+    query = """
+            SELECT
+                Members.Name
+            FROM
+                Members
+                INNER JOIN Locations ON Members.Member_ID = Locations.Owner_ID
+            """
+    result = execute_read_query(connection, query)
+
+    if result is not None:
+        hosts = []
+        for item in result:
+            hosts.append(item[0])
+        return hosts
+
+
+def get_member_id(connection, host):
+    query = "SELECT Member_ID FROM Members WHERE Name = '{}'".format(host)
+
+    result = execute_read_query(connection, query)
+
+    if result is not None:
+        return result[0][0]
 
 
 logger = logging.getLogger('discord')
@@ -187,6 +229,48 @@ async def on_message(message):
             msg = '{0} typically lasts {1} minutes :clock1:'.format(name, result[0][0])
             await message.channel.send(msg)
 
+    if message.content.lower().endswith('is the host', 1) and len(ACTIVE_VOTES) > 0:
+        if ACTIVE_VOTES[0].get_phase() == 2:
+            hosts = get_valid_hosts(conn)
+            isolate_hostname = message.content.split()[0]
+            candidate = isolate_hostname.lower().capitalize()
+            if candidate in hosts:
+                ACTIVE_VOTES[0].set_host(candidate)
+                ACTIVE_VOTES[0].finalize_gamenight()
+                # write to db, write to channel
+
+                night = ACTIVE_VOTES[0].winning_date.dt.isoformat(sep=' ')
+                host_id = get_member_id(conn, candidate)
+
+                query_night = """
+                        INSERT INTO
+                            GameNights (NightDate, Host_ID, Food)
+                        VALUES
+                            ('{0}', {1}, 'TBD');
+                        """.format(night, host_id)
+
+                # query_games = """
+                #             INSERT INTO GameNightGames (GameNight_ID, Game_ID)
+                #             VALUES
+                #                 ({0}, {1}),
+                #                 ({0}, {2}),
+                #                 ({0}, {3});
+                #             """.format()
+                # finish for R2
+
+                execute_query(conn, query_night)
+                gamenight = ACTIVE_VOTES.pop()
+
+                game1 = gamenight.winning_games[0]
+                game2 = gamenight.winning_games[1]
+                game3 = gamenight.winning_games[2]
+
+                date_formatted = str(gamenight.winning_date)
+                msg = 'Game night created!\nThe host is {0} and the date is {1}\n\n'.format(candidate, date_formatted)
+                msg += 'Voters would like to play\n{0}\n{1}\n{2}'.format(game1, game2, game3)
+
+                await message.channel.send(msg)
+
     if message.content.lower().startswith('!vote '):
         ballot_list = message.content.lower().split()[1:]
         ballot_string = ''.join([str(word) for word in ballot_list])
@@ -218,6 +302,20 @@ async def on_message(message):
                 mess = await message.channel.send(msg)
                 ACTIVE_VOTES[0].set_id(mess.id)
 
+                for game in games:
+                    ACTIVE_VOTES[0].add_game(game.split('-')[0])
+                reactions = get_emojis(conn)
+
+                for emoji in reactions:
+                    await mess.add_reaction(emoji)
+
+        if ballot_string == 'hostphase':
+            if len(ACTIVE_VOTES) > 0:
+                ACTIVE_VOTES[0].set_phase(2)
+                msg = 'Who is the host?\nUse the host\'s real name'
+                mess = await message.channel.send(msg)
+                ACTIVE_VOTES[0].set_id(mess.id)
+
     if message.content == "!allgames":
         games = get_game_titles(conn)
         msg = '\n'.join(games)
@@ -226,18 +324,24 @@ async def on_message(message):
 
 @client.event
 async def on_reaction_add(reaction, user):
-    for gamenight in ACTIVE_VOTES:
-        if reaction.message.id == gamenight.get_id():
-            if gamenight.get_phase() != 2:
-                gamenight.tally_vote(reaction)
+    if user != client.user:
+        if len(ACTIVE_VOTES) > 0:
+            gamenight = ACTIVE_VOTES[0]
+            if reaction.message.id == gamenight.get_id() and gamenight.get_phase() != 2:
+                if not gamenight.tally_vote(reaction, user):
+                    name = user.display_name
+                    chastise = '{}, you can only vote 3 times dummy!\nRemove a vote to continue....'.format(name)
+                    await reaction.remove(user)
+                    await reaction.message.channel.send(chastise)
 
 
 @client.event
 async def on_reaction_remove(reaction, user):
-    for gamenight in ACTIVE_VOTES:
-        if reaction.message.id == gamenight.get_id():
-            if gamenight.get_phase() != 2:
-                gamenight.untally_vote(reaction)
+    if user != client.user:
+        if len(ACTIVE_VOTES) > 0:
+            gamenight = ACTIVE_VOTES[0]
+            if reaction.message.id == gamenight.get_id() and gamenight.get_phase() != 2:
+                gamenight.untally_vote(reaction, user)
 
 
 @client.event
