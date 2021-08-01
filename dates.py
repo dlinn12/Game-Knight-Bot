@@ -13,17 +13,15 @@ class Saturday():
 
 
 def get_next_saturdays():
-    d = datetime.today()
-    wd = d.weekday()
+    date = datetime.today()
+    s = 5
+    # each consequent sat. is 7,14, and 21 days ahead
+    days_ahead = s - date.weekday()
+    if days_ahead <= 0:  # currently saturday or sunday
+        days_ahead += 7
 
-    s1 = timedelta((12 - wd) % 7)
-    s2 = timedelta((12 - wd) % 14)
-    s3 = timedelta((19 - wd) % 21)
-    s4 = timedelta((26 - wd) % 28)
-
-    s1 = Saturday(d + s1)
-    s2 = Saturday(d + s2)
-    s3 = Saturday(d + s3)
-    s4 = Saturday(d + s4)
-
+    s1 = Saturday(date + timedelta(days_ahead))
+    s2 = Saturday(date + timedelta(days_ahead + 7))
+    s3 = Saturday(date + timedelta(days_ahead + 14))
+    s4 = Saturday(date + timedelta(days_ahead + 21))
     return s1, s2, s3, s4
