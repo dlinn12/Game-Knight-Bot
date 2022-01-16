@@ -14,6 +14,8 @@ from GameNight import GameNight
 Stores active vote id
 """
 ACTIVE_VOTES = []
+GREETINGS = ['hello', 'Hi', 'Hola', 'Hey']
+BOT_NAME = ['game knight', 'game-knight', 'gameknight']
 EMOJIS_DICTIONARY = {
     ':house:': '🏠', ':snowflake:': '❄', ':snowman:': '⛄', ':snowman2:': '☃', ':cat:': '🐱',
                     ':farmer:': '👨‍🌾', ':map:': '🗺', ':ring:': '💍', ':syringe:': '💉', ':clock1:': '🕐',
@@ -178,11 +180,18 @@ async def on_message(message):
     if message.author == client.user:
         return
 
-    if message.content.startswith("insult"):
+    message_content = message.content.lower()
+
+    if message_content.split()[0] in GREETINGS:
+        end_of_string = ' '.join([w for w in message_content.split()[1:].strip('!')])
+        if end_of_string in BOT_NAME:
+            pass  # greet user
+
+    if message_content.startswith("insult"):
         msg = get_comeback()
         await message.channel.send(msg)
 
-    if message.content.lower().startswith("who owns"):
+    if message_content.startswith("who owns"):
         name = guess_game_name(message.content, 2)
 
         if name is None:
@@ -202,7 +211,7 @@ async def on_message(message):
             msg = '{1} owns {0}'.format(name, result[0][0])
             await message.channel.send(msg)
 
-    if message.content.lower().startswith("how many can play"):
+    if message_content.startswith("how many can play"):
         name = guess_game_name(message.content, 4)
 
         if name is None:
@@ -216,7 +225,7 @@ async def on_message(message):
             msg = '{0} people can play {1}'.format(result[0][0], name)
             await message.channel.send(msg)
 
-    if message.content.lower().startswith("how long does"):
+    if message_content.startswith("how long does"):
         name = guess_game_name(message.content, 3)
 
         if name is None:
@@ -229,10 +238,10 @@ async def on_message(message):
             msg = '{0} typically lasts {1} minutes :clock1:'.format(name, result[0][0])
             await message.channel.send(msg)
 
-    if message.content.lower().endswith('is the host', 1) and len(ACTIVE_VOTES) > 0:
+    if message_content.endswith('is the host', 1) and len(ACTIVE_VOTES) > 0:
         if ACTIVE_VOTES[0].get_phase() == 2:
             hosts = get_valid_hosts(conn)
-            isolate_hostname = message.content.split()[0]
+            isolate_hostname = message_content.split()[0]
             candidate = isolate_hostname.lower().capitalize()
             if candidate in hosts:
                 ACTIVE_VOTES[0].set_host(candidate)
@@ -271,8 +280,8 @@ async def on_message(message):
 
                 await message.channel.send(msg)
 
-    if message.content.lower().startswith('!vote '):
-        ballot_list = message.content.lower().split()[1:]
+    if message_content.startswith('!vote '):
+        ballot_list = message_content.split()[1:]
         ballot_string = ''.join([str(word) for word in ballot_list])
 
         if ballot_string == 'gamenight':
@@ -316,7 +325,7 @@ async def on_message(message):
                 mess = await message.channel.send(msg)
                 ACTIVE_VOTES[0].set_id(mess.id)
 
-    if message.content == "!allgames":
+    if message_content == "!allgames":
         games = get_game_titles(conn)
         msg = '\n'.join(games)
         await message.channel.send(msg)
