@@ -4,7 +4,7 @@ import logging
 import os
 
 from sqlite3 import Error
-from comeback import get_comeback
+from phrases import get_comeback, get_compliment, get_backhand
 from dotenv import load_dotenv
 from difflib import SequenceMatcher
 from dates import get_next_saturdays
@@ -189,6 +189,13 @@ async def on_message(message):
 
     if message_content.startswith("insult"):
         msg = get_comeback()
+        await message.channel.send(msg)
+
+    if message_content.startswith("compliment"):
+        if (message.author.username == "engineer13"):
+            msg = get_backhand()
+        else:
+            msg = get_compliment()
         await message.channel.send(msg)
 
     if message_content.startswith("who owns"):

@@ -21,3 +21,7 @@ comebacks.txt
 *.db
 db_startup_script.py
 startup_db.py
+
+# docker
+.dockerignore
+Dockerfile

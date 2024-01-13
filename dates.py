@@ -12,8 +12,15 @@ class Saturday():
         return self.dt.strftime(format_str)
 
 
-def get_next_saturdays():
+def get_next_saturdays(when):
     date = datetime.today()
+    y = date.year
+    m = date.month + 1
+    d = 1
+
+    if when == 'next':
+        date = datetime(y, m, d)
+
     s = 5
     # each consequent sat. is 7,14, and 21 days ahead
     days_ahead = s - date.weekday()
