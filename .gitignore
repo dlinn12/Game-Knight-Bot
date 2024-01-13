@@ -17,6 +17,8 @@ assets/
 
 # Specific data files
 comebacks.txt
+compliments.txt
+backhanded.txt
 *.sql
 *.db
 db_startup_script.py
