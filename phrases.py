@@ -10,7 +10,7 @@ def get_comeback():
 
     comeback = ''
 
-    with open(insults, 'r') as file:
+    with open(insults, 'r', encoding='UTF-8') as file:
         comeback = next(file)
         for num, aline in enumerate(file, 2):
             if randrange(num):
@@ -25,7 +25,7 @@ def get_compliment():
 
     comeback = ''
 
-    with open(compliments, 'r') as file:
+    with open(compliments, 'r', encoding='UTF-8') as file:
         comeback = next(file)
         for num, aline in enumerate(file, 2):
             if randrange(num):
@@ -40,7 +40,7 @@ def get_backhand():
 
     comeback = ''
 
-    with open(compliments, 'r') as file:
+    with open(compliments, 'r', encoding='UTF-8') as file:
         comeback = next(file)
         for num, aline in enumerate(file, 2):
             if randrange(num):

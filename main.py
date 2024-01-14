@@ -182,17 +182,17 @@ async def on_message(message):
 
     message_content = message.content.lower()
 
-    if message_content.split()[0] in GREETINGS:
-        end_of_string = ' '.join([w for w in message_content.split()[1:].strip('!')])
-        if end_of_string in BOT_NAME:
-            pass  # greet user
+    # if message_content.split()[0] in GREETINGS:
+    #     end_of_string = ' '.join([w for w in message_content.split()[1:].strip('!')])
+    #     if end_of_string in BOT_NAME:
+    #         pass  # greet user
 
     if message_content.startswith("insult"):
         msg = get_comeback()
         await message.channel.send(msg)
 
     if message_content.startswith("compliment"):
-        if (message.author.username == "engineer13"):
+        if (message.author.name == "engineer13" or message_content.find("michael") != 1):
             msg = get_backhand()
         else:
             msg = get_compliment()
