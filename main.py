@@ -192,7 +192,7 @@ async def on_message(message):
         await message.channel.send(msg)
 
     if message_content.startswith("compliment"):
-        if (message.author.name == "engineer13" or message_content.find("michael") != 1):
+        if (message.author.name == "engineer13" or message_content.find("michael") != -1):
             msg = get_backhand()
         else:
             msg = get_compliment()
